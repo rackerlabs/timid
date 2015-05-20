@@ -122,6 +122,14 @@ class SensitiveDict(collections.MutableMapping):
 
         return iter(self._data)
 
+    def copy(self):
+        """
+        Retrieve a copy of the sensitive dictionary.  Note that this is a
+        shallow copy.
+        """
+
+        return self.__class__(self._data.copy(), self._sensitive.copy())
+
     def declare_sensitive(self, key):
         """
         Declare a key as a "sensitive" key, a key for which the data
@@ -215,7 +223,7 @@ class MaskedDict(collections.Mapping):
         :returns: The number of keys in the dictionary.
         """
 
-        return len(self._parent._data)
+        return len(self._parent)
 
     def __getitem__(self, key):
         """
@@ -231,15 +239,15 @@ class MaskedDict(collections.Mapping):
         """
 
         # Well, if it doesn't even exist, raise KeyError immediately
-        if key not in self._parent._data:
+        if key not in self._parent:
             raise KeyError(key)
 
         # Apply masking
-        if key in self._parent._sensitive:
+        if key in self._parent.sensitive:
             return self._parent.masking.format(key=key)
 
         # OK, just stringify the value
-        return self._parent._data[key]
+        return self._parent[key]
 
     def __iter__(self):
         """
@@ -248,7 +256,7 @@ class MaskedDict(collections.Mapping):
         :returns: An iterator over the keys in the dictionary.
         """
 
-        return iter(self._parent._data)
+        return iter(self._parent)
 
     @property
     def sensitive(self):

@@ -461,6 +461,21 @@ class EnvironmentTest(unittest.TestCase):
         self.assertEqual(env._data, {'b': 'one'})
         self.assertFalse(special._update.called)
 
+    def test_copy(self):
+        env = self.get_env({'a': 'one'})
+        env._sensitive = set(['b'])
+
+        with mock.patch.object(environment.Environment, '__init__',
+                               return_value=None) as mock_init:
+            result = env.copy()
+
+            self.assertTrue(isinstance(result, environment.Environment))
+            mock_init.assert_called_once_with(
+                {'a': 'one'}, set(['b']), '/current')
+            self.assertNotEqual(id(mock_init.call_args[0][0]), id(env._data))
+            self.assertNotEqual(id(mock_init.call_args[0][1]),
+                                id(env._sensitive))
+
     def test_declare_special_base(self):
         klass = mock.Mock()
         env = self.get_env({'a': 'one'})

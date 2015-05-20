@@ -361,6 +361,15 @@ class Environment(utils.SensitiveDict):
         if name in self._special:
             self._special[name]._update(None)
 
+    def copy(self):
+        """
+        Retrieve a copy of the Environment.  Note that this is a shallow
+        copy.
+        """
+
+        return self.__class__(self._data.copy(), self._sensitive.copy(),
+                              self._cwd)
+
     def _declare_special(self, name, sep, klass):
         """
         Declare an environment variable as a special variable.  This can

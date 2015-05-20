@@ -101,6 +101,16 @@ class SensitiveDictTest(unittest.TestCase):
 
         self.assertEqual(set(iter(obj)), set(['a', 'b']))
 
+    def test_copy(self):
+        obj = utils.SensitiveDict({'a': 'one', 'b': 'two'}, set(['a', 'c']))
+
+        result = obj.copy()
+
+        self.assertEqual(obj._data, result._data)
+        self.assertNotEqual(id(obj._data), id(result._data))
+        self.assertEqual(obj._sensitive, result._sensitive)
+        self.assertNotEqual(id(obj._sensitive), id(result._sensitive))
+
     def test_declare_sensitive(self):
         obj = utils.SensitiveDict({'a': 'one', 'b': 'two'}, set(['a', 'c']))
 
@@ -170,30 +180,46 @@ class MaskedDictTest(unittest.TestCase):
         self.assertEqual(result, None)
 
     def test_str_base(self):
-        parent = mock.Mock(_data={'a': 'one'}, _sensitive=set(),
-                           masking='<masked {key}>')
+        data = {'a': 'one'}
+        parent = mock.Mock(
+            __iter__=lambda s: iter(data),
+            __contains__=lambda s, n: n in data,
+            __getitem__=lambda s, n: data[n],
+            sensitive=set(),
+            masking='<masked {key}>',
+        )
         obj = utils.MaskedDict(parent)
 
         self.assertEqual(six.text_type(obj), six.text_type({'a': 'one'}))
 
     def test_str_masked(self):
-        parent = mock.Mock(_data={'a': 'one'}, _sensitive=set(['a']),
-                           masking='<masked {key}>')
+        data = {'a': 'one'}
+        parent = mock.Mock(
+            __iter__=lambda s: iter(data),
+            __contains__=lambda s, n: n in data,
+            __getitem__=lambda s, n: data[n],
+            sensitive=set(['a']),
+            masking='<masked {key}>',
+        )
         obj = utils.MaskedDict(parent)
 
         self.assertEqual(six.text_type(obj),
                          six.text_type({'a': '<masked a>'}))
 
     def test_len(self):
-        parent = mock.Mock(_data={'a': 'one', 'b': 'two', 'c': 'three'})
+        parent = mock.Mock(__len__=lambda s: 3)
         obj = utils.MaskedDict(parent)
 
         self.assertEqual(len(obj), 3)
 
     def test_getitem(self):
-        parent = mock.Mock(_data={'a': 'one', 'b': 'two'},
-                           _sensitive=set(['a', 'c']),
-                           masking='<masked {key}>')
+        data = {'a': 'one', 'b': 'two'}
+        parent = mock.Mock(
+            __contains__=lambda s, x: x in data,
+            __getitem__=lambda s, x: data[x],
+            sensitive=set(['a', 'c']),
+            masking='<masked {key}>',
+        )
         obj = utils.MaskedDict(parent)
 
         self.assertEqual(obj['a'], '<masked a>')
@@ -202,11 +228,10 @@ class MaskedDictTest(unittest.TestCase):
         self.assertRaises(KeyError, lambda: obj['d'])
 
     def test_iter(self):
-        parent = mock.Mock(_data={'a': 'one', 'b': 'two'},
-                           _sensitive=set(['a', 'c']))
+        parent = mock.Mock(__iter__=lambda s: iter(['a', 'b']))
         obj = utils.MaskedDict(parent)
 
-        self.assertEqual(set(iter(obj)), set(['a', 'b']))
+        self.assertEqual(list(iter(obj)), ['a', 'b'])
 
     def test_sensitive(self):
         parent = mock.Mock(sensitive=set(['a', 'c']))
