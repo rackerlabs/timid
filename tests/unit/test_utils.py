@@ -15,6 +15,7 @@
 
 import unittest
 
+import jsonschema
 import mock
 import six
 
@@ -243,3 +244,37 @@ class MaskedDictTest(unittest.TestCase):
         obj = utils.MaskedDict('parent')
 
         self.assertEqual(id(obj), id(obj.masked))
+
+
+class SchemaException(Exception):
+    def __init__(self, msg, **kwargs):
+        super(SchemaException, self).__init__(msg)
+        self.msg = msg
+        self.kwargs = kwargs
+
+
+class SchemaValidateTest(unittest.TestCase):
+    @mock.patch.object(jsonschema, 'validate')
+    def test_success(self, mock_validate):
+        utils.schema_validate('inst', 'sch', SchemaException, 'foo', 'bar',
+                              spam='one', maps='two')
+
+        mock_validate.assert_called_once_with('inst', 'sch')
+
+    @mock.patch.object(jsonschema, 'validate',
+                       side_effect=jsonschema.ValidationError(
+                           'validation failed', path=('a', 2, 'b', 3, 'c')))
+    def test_failure(self, mock_validate):
+        try:
+            utils.schema_validate('inst', 'sch', SchemaException, 'foo', 'bar',
+                                  spam='one', maps='two')
+        except SchemaException as exc:
+            self.assertEqual(exc.msg,
+                             'Failed to validate "foo/bar/a/[2]/b/[3]/c": '
+                             'validation failed')
+            self.assertEqual(exc.kwargs, {
+                'spam': 'one',
+                'maps': 'two',
+            })
+        else:
+            self.fail('Failed to raise SchemaException')

@@ -1,5 +1,6 @@
 cli_tools
 keyring
 git+ssh://git@github.rackspace.com/O3Eng/pwsafe.git#egg=pwsafe
+jsonschema
 PyYAML
 six
