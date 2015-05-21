@@ -1,5 +1,6 @@
 cli_tools
 keyring
+Jinja2
 jsonschema
 PyYAML
 six
