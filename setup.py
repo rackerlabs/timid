@@ -88,5 +88,10 @@ setuptools.setup(
         'console_scripts': [
             'timid = timid.main:timid.console',
         ],
+        'timid.actions': [
+            'include = timid.steps:IncludeAction',
+        ],
+        'timid.modifiers': [
+        ],
     },
 )
