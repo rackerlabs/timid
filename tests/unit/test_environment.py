@@ -21,6 +21,7 @@ import mock
 import six
 
 from timid import environment
+from timid import steps
 from timid import utils
 
 
@@ -601,3 +602,106 @@ class EnvironmentTest(unittest.TestCase):
         self.assertEqual(env._cwd, '/canon/path')
         mock_canonicalize_path.assert_called_once_with(
             '/current', '../other')
+
+
+class DirectoryActionTest(unittest.TestCase):
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_init(self, mock_init):
+        ctxt = mock.Mock(**{'template.return_value': 'templated'})
+
+        result = environment.DirectoryAction(
+            ctxt, 'chdir', 'directory', 'step_addr')
+
+        self.assertEqual(result.target_dir, 'templated')
+        mock_init.assert_called_once_with(
+            ctxt, 'chdir', 'directory', 'step_addr')
+        ctxt.template.assert_called_once_with('directory')
+
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_call(self, mock_init):
+        tmpl = mock.Mock(return_value='target_dir')
+        ctxt = mock.Mock(**{
+            'template.return_value': tmpl,
+            'environment.cwd': 'unchanged',
+        })
+        action = environment.DirectoryAction(
+            ctxt, 'chdir', 'directory', 'step_addr')
+
+        result = action(ctxt)
+
+        self.assertTrue(isinstance(result, steps.StepResult))
+        self.assertEqual(result.state, steps.SUCCESS)
+        self.assertEqual(ctxt.environment.cwd, 'target_dir')
+        tmpl.assert_called_once_with(ctxt)
+
+
+class RunActionTest(unittest.TestCase):
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_init_string(self, mock_init):
+        ctxt = mock.Mock(**{'template.side_effect': lambda x: '%s_tmpl' % x})
+
+        result = environment.RunAction(ctxt, 'run', 'command', 'step_addr')
+
+        self.assertEqual(result.command, 'command_tmpl')
+        ctxt.template.assert_called_once_with('command')
+
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_init_list(self, mock_init):
+        ctxt = mock.Mock(**{'template.side_effect': lambda x: '%s_tmpl' % x})
+
+        result = environment.RunAction(
+            ctxt, 'run', ['command', 'arg1', 'arg2', 'arg3'], 'step_addr')
+
+        self.assertEqual(result.command, ['command_tmpl', 'arg1_tmpl',
+                                          'arg2_tmpl', 'arg3_tmpl'])
+        ctxt.template.assert_has_calls([
+            mock.call('command'),
+            mock.call('arg1'),
+            mock.call('arg2'),
+            mock.call('arg3'),
+        ])
+
+    def get_action(self, command):
+        with mock.patch.object(environment.RunAction, '__init__',
+                               return_value=None):
+            action = environment.RunAction()
+
+        action.command = command
+
+        return action
+
+    def test_call_string(self):
+        subproc = mock.Mock(**{'wait.return_value': 5})
+        ctxt = mock.Mock(**{'environment.call.return_value': subproc})
+        command = mock.Mock(return_value='cmd arg1 arg2 arg3')
+        action = self.get_action(command)
+
+        result = action(ctxt)
+
+        self.assertTrue(isinstance(result, steps.StepResult))
+        self.assertEqual(result.returncode, 5)
+        command.assert_called_once_with(ctxt)
+        ctxt.environment.call.assert_called_once_with(
+            ['cmd', 'arg1', 'arg2', 'arg3'])
+        subproc.wait.assert_called_once_with()
+
+    def test_call_list(self):
+        subproc = mock.Mock(**{'wait.return_value': 5})
+        ctxt = mock.Mock(**{'environment.call.return_value': subproc})
+        command = [
+            mock.Mock(return_value='cmd'),
+            mock.Mock(return_value='arg1'),
+            mock.Mock(return_value='arg2'),
+            mock.Mock(return_value='arg3'),
+        ]
+        action = self.get_action(command)
+
+        result = action(ctxt)
+
+        self.assertTrue(isinstance(result, steps.StepResult))
+        self.assertEqual(result.returncode, 5)
+        for part in command:
+            part.assert_called_once_with(ctxt)
+        ctxt.environment.call.assert_called_once_with(
+            ['cmd', 'arg1', 'arg2', 'arg3'])
+        subproc.wait.assert_called_once_with()

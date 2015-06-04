@@ -21,6 +21,7 @@ import subprocess
 
 import six
 
+from timid import steps
 from timid import utils
 
 
@@ -466,3 +467,184 @@ class Environment(utils.SensitiveDict):
         """
 
         self._cwd = utils.canonicalize_path(self._cwd, value)
+
+
+class EnvironmentAction(steps.SensitiveDictAction):
+    """
+    An action for updating and otherwise modifying the execution
+    environment.  The base usage is::
+
+        - env:
+            set:
+              ENV_VAR: value
+            unset:
+            - OTHER_VAR
+            sensitive:
+            - SENS_VAR
+
+    This action would set the environment variable named "ENV_VAR" to
+    the value "value", unset the environment variable "OTHER_VAR", and
+    mark the environment variable "SENS_VAR" as a sensitive variable.
+
+    Note that if an environment variable is present under both the
+    "set" and "unset" keys, the "set" will take precedence.
+    """
+
+    # Schema for validating the configuration; this contains tweaks
+    # specific to environment variables
+    schema = {
+        'type': 'object',
+        'properties': {
+            'set': {
+                'type': 'object',
+                'additionalProperties': {'type': 'string'},
+            },
+            'unset': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+            'sensitive': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+        },
+        'additionalProperties': False,
+    }
+
+    # The name of the context attribute affected by this action
+    context_attr = 'environment'
+
+
+class DirectoryAction(steps.Action):
+    """
+    An action for changing the working directory.  The base usage is::
+
+        - chdir: path/to/change/to
+
+    This action would cause a change to the indicated directory,
+    relative to the current working directory.
+    """
+
+    # Schema for validating the configuration
+    schema = {'type': 'string'}
+
+    def __init__(self, ctxt, name, config, step_addr):
+        """
+        Initialize a ``DirectoryAction`` instance.
+
+        :param ctxt: The context object.
+        :param name: The name of the action.
+        :param config: The configuration for the action.  This may be
+                       a scalar value (e.g., "run: command"), a list,
+                       or a dictionary.  If the configuration provided
+                       is invalid for the action, a ``ConfigError``
+                       should be raised.
+        :param step_addr: The address of the step in the test
+                          configuration.  Should be passed to the
+                          ``ConfigError``.
+        """
+
+        # Perform superclass initialization
+        super(DirectoryAction, self).__init__(ctxt, name, config, step_addr)
+
+        # Save the directory to switch to
+        self.target_dir = ctxt.template(config)
+
+    def __call__(self, ctxt):
+        """
+        Invoke the action.  This changes to the directory specified by the
+        configuration.
+
+        :param ctxt: The context object.
+
+        :returns: A ``StepResult`` object.
+        """
+
+        # Change to the target directory
+        ctxt.environment.cwd = self.target_dir(ctxt)
+
+        # We're done!
+        return steps.StepResult(state=steps.SUCCESS)
+
+
+class RunAction(steps.Action):
+    """
+    An action for invoking a shell command.  The base usage is::
+
+        - run: ./command.py arg1 arg2 arg3
+
+    Note that template substitution is performed *before* splitting
+    the arguments up into a list.  (This splitting is performed using
+    ``shlex.split()``, so shell quoting is honored.)  In particular,
+    this means that any given template substitution that renders into
+    a string containing spaces may result into multiple arguments
+    passed to the command, unless shell quoting is used.  If more
+    control over arguments is desired, use the more advanced list
+    form::
+
+        - run:
+          - ./command.py
+          - arg1
+          - arg2
+          - arg3
+
+    In this form, no shell syntax quoting is honored.
+    """
+
+    # Schema for validating the configuration
+    schema = {
+        'oneOf': [
+            {'type': 'string'},
+            {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+        ],
+    }
+
+    def __init__(self, ctxt, name, config, step_addr):
+        """
+        Initialize a ``RunAction`` instance.
+
+        :param ctxt: The context object.
+        :param name: The name of the action.
+        :param config: The configuration for the action.  This may be
+                       a scalar value (e.g., "run: command"), a list,
+                       or a dictionary.  If the configuration provided
+                       is invalid for the action, a ``ConfigError``
+                       should be raised.
+        :param step_addr: The address of the step in the test
+                          configuration.  Should be passed to the
+                          ``ConfigError``.
+        """
+
+        # Perform superclass initialization
+        super(RunAction, self).__init__(ctxt, name, config, step_addr)
+
+        # Build up the correct command
+        if isinstance(config, six.string_types):
+            self.command = ctxt.template(config)
+        else:
+            self.command = [ctxt.template(arg) for arg in config]
+
+    def __call__(self, ctxt):
+        """
+        Invoke the action.  This executes the command specified in the
+        configuration.
+
+        :param ctxt: The context object.
+
+        :returns: A ``StepResult`` object.
+        """
+
+        # First, do the correct splitting/rendering
+        if isinstance(self.command, list):
+            args = [arg(ctxt) for arg in self.command]
+        else:
+            args = shlex.split(self.command(ctxt))
+
+        # Invoke the command
+        subproc = ctxt.environment.call(args)
+
+        # All done...
+        return steps.StepResult(returncode=subproc.wait())

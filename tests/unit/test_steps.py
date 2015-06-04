@@ -1076,6 +1076,72 @@ class StepResultTest(unittest.TestCase):
         self.assertEqual(obj._ignore, True)
 
 
+class SensitiveDictActionForTest(steps.SensitiveDictAction):
+    context_attr = 'attr'
+
+
+class SensitiveDictActionTest(unittest.TestCase):
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_init(self, mock_init):
+        ctxt = mock.Mock(**{
+            'template.side_effect': lambda x: '%s_tmpl' % x,
+        })
+        conf = {
+            'set': {'a': 5, 'b': 7},
+            'unset': ['b', 'c', 'd'],
+            'sensitive': ['a', 'c', 'e'],
+        }
+
+        result = SensitiveDictActionForTest(ctxt, 'test', conf, 'addr')
+
+        self.assertEqual(result.set_vars, {'a': '5_tmpl', 'b': '7_tmpl'})
+        self.assertEqual(result.unset_vars, set(['b', 'c', 'd']))
+        self.assertEqual(result.sensitive_vars, set(['a', 'c', 'e']))
+        mock_init.assert_called_once_with(ctxt, 'test', conf, 'addr')
+        ctxt.template.assert_has_calls([
+            mock.call(5),
+            mock.call(7),
+        ], any_order=True)
+
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_call_base(self, mock_init):
+        ctxt = mock.Mock(**{
+            'template.side_effect': lambda x: (lambda y: x),
+            'attr': {'a': 1, 'b': 3, 'c': 5, 'd': 7, 'e': 9},
+        })
+        conf = {
+            'set': {'a': 5, 'b': 7},
+            'unset': ['b', 'c', 'd'],
+        }
+        action = SensitiveDictActionForTest(ctxt, 'test', conf, 'addr')
+
+        result = action(ctxt)
+
+        self.assertTrue(isinstance(result, steps.StepResult))
+        self.assertEqual(result.state, steps.SUCCESS)
+        self.assertEqual(ctxt.attr, {'a': 5, 'b': 7, 'e': 9})
+
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_call_sensitive(self, mock_init):
+        ctxt = mock.Mock(**{
+            'template.side_effect': lambda x: (lambda y: x),
+        })
+        conf = {
+            'sensitive': ['a', 'c', 'e'],
+        }
+        action = SensitiveDictActionForTest(ctxt, 'test', conf, 'addr')
+
+        result = action(ctxt)
+
+        self.assertTrue(isinstance(result, steps.StepResult))
+        self.assertEqual(result.state, steps.SUCCESS)
+        ctxt.attr.declare_sensitive.assert_has_calls([
+            mock.call('a'),
+            mock.call('c'),
+            mock.call('e'),
+        ], any_order=True)
+
+
 class IncludeActionTest(unittest.TestCase):
     @mock.patch.object(os.path, 'dirname', return_value='/root/dir')
     @mock.patch.object(steps.Action, '__init__', return_value=None)

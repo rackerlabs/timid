@@ -696,6 +696,110 @@ class StepResult(object):
             self._ignore = value
 
 
+class SensitiveDictAction(Action):
+    """
+    An abstract action for updating a ``SensitiveDict`` instance.  The
+    base usage is::
+
+        - name:
+            set:
+              var: value
+            unset:
+            - other_var
+            sensitive:
+            - sens_var
+
+    This action would set the variable named "var" to the value
+    "value", unset the variable "other_var", and mark the variable
+    "sens_var" as a sensitive variable.
+
+    Note that if a variable is present under both the "set" and
+    "unset" keys, the "set" will take precedence.
+    """
+
+    # Schema for validating the configuration
+    schema = {
+        'type': 'object',
+        'properties': {
+            'set': {'type': 'object'},
+            'unset': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+            'sensitive': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+        },
+        'additionalProperties': False,
+    }
+
+    def __init__(self, ctxt, name, config, step_addr):
+        """
+        Initialize a ``SensitiveDictAction`` instance.
+
+        :param ctxt: The context object.
+        :param name: The name of the action.
+        :param config: The configuration for the action.  This may be
+                       a scalar value (e.g., "run: command"), a list,
+                       or a dictionary.  If the configuration provided
+                       is invalid for the action, a ``ConfigError``
+                       should be raised.
+        :param step_addr: The address of the step in the test
+                          configuration.  Should be passed to the
+                          ``ConfigError``.
+        """
+
+        # Perform superclass initialization
+        super(SensitiveDictAction, self).__init__(
+            ctxt, name, config, step_addr)
+
+        # Set up the 'set' portion
+        self.set_vars = {}
+        for key, value in config.get('set', {}).items():
+            self.set_vars[key] = ctxt.template(value)
+
+        # Now do the unset and sensitive sets
+        self.unset_vars = set(config.get('unset', []))
+        self.sensitive_vars = set(config.get('sensitive', []))
+
+    def __call__(self, ctxt):
+        """
+        Invoke the action.  This updates the appropriate ``SensitiveDict``
+        instance from the context as specified in the configuration.
+
+        :param ctxt: The context object.
+
+        :returns: A ``StepResult`` object.
+        """
+
+        # First, select the correct context attribute
+        sensitive_dict = getattr(ctxt, self.context_attr)
+
+        # Now, apply the sensitive and unset changes
+        for var in self.sensitive_vars:
+            sensitive_dict.declare_sensitive(var)
+        for var in self.unset_vars:
+            sensitive_dict.pop(var, None)
+
+        # Finally, apply the sets
+        for var, tmpl in self.set_vars.items():
+            sensitive_dict[var] = tmpl(ctxt)
+
+        # We're done!
+        return StepResult(state=SUCCESS)
+
+    @abc.abstractproperty
+    def context_attr(self):
+        """
+        The name of an attribute of the context containing the
+        ``SensitiveDict`` instance that should be acted upon by this
+        action.
+        """
+
+        pass  # pragma: no cover
+
+
 class IncludeAction(Action):
     """
     An action that includes steps from another file.  The base usage

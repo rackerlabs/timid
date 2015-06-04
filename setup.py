@@ -89,7 +89,10 @@ setuptools.setup(
             'timid = timid.main:timid.console',
         ],
         'timid.actions': [
+            'chdir = timid.environment:DirectoryAction',
+            'env = timid.environment:EnvironmentAction',
             'include = timid.steps:IncludeAction',
+            'run = timid.environment:RunAction',
         ],
         'timid.modifiers': [
         ],
