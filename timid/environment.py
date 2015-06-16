@@ -265,7 +265,7 @@ class Environment(utils.SensitiveDict):
         """
 
         # Select the starting environment
-        environ = environ or os.environ
+        environ = environ or os.environ.copy()
 
         # Build the 'sensitive' set
         sensitive_var = SetVariable(self, 'TIMID_SENSITIVE',

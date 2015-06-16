@@ -284,6 +284,7 @@ class EnvironmentTest(unittest.TestCase):
             result, 'TIMID_SENSITIVE', value=None)
         mock_init.assert_called_once_with(
             {'a': 'one', 'b': 'two'}, set(['TIMID_SENSITIVE']))
+        self.assertNotEqual(id(os.environ), id(mock_init.call_args[0][0]))
         mock_ListVariable.assert_called_once_with(
             result, 'PATH')
         mock_getcwd.assert_called_once_with()
