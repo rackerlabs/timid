@@ -42,8 +42,10 @@ class NamespaceCacheTest(unittest.TestCase):
             'ep2': [eps[1]],
         })
         self.assertEqual(result._epcache, {})
+        self.assertEqual(result._eplist, None)
 
-    def make_obj(self, namespace='namespace', entrypoints=None, epcache=None):
+    def make_obj(self, namespace='namespace', entrypoints=None, epcache=None,
+                 eplist=None):
         with mock.patch.object(entry.NamespaceCache, '__init__',
                                return_value=None):
             obj = entry.NamespaceCache()
@@ -51,8 +53,49 @@ class NamespaceCacheTest(unittest.TestCase):
         obj.namespace = namespace
         obj._entrypoints = entrypoints or {}
         obj._epcache = epcache or {}
+        obj._eplist = eplist
 
         return obj
+
+    def test_iter_cached(self):
+        obj = self.make_obj(eplist=['obj1', 'obj2', 'obj3'])
+
+        result = list(iter(obj))
+
+        self.assertEqual(result, ['obj1', 'obj2', 'obj3'])
+        self.assertEqual(obj._eplist, ['obj1', 'obj2', 'obj3'])
+        self.assertEqual(obj._epcache, {})
+
+    def test_iter_uncached(self):
+        obj = self.make_obj(entrypoints={
+            'ep1': [
+                mock.Mock(**{'load.side_effect': ImportError('spam')}),
+                mock.Mock(**{'load.side_effect': AttributeError('spam')}),
+                mock.Mock(**{
+                    'load.side_effect': pkg_resources.UnknownExtra('spam'),
+                }),
+            ],
+            'ep2': [
+                mock.Mock(**{'load.return_value': 'obj0'}),
+                mock.Mock(**{'load.return_value': 'obj1'}),
+            ],
+            'ep3': [
+                mock.Mock(**{'load.side_effect': ImportError('spam')}),
+                mock.Mock(**{'load.return_value': 'obj2'}),
+                mock.Mock(**{'load.side_effect': AttributeError('spam')}),
+                mock.Mock(**{'load.return_value': 'obj3'}),
+            ],
+        }, epcache={'ep2': 'cached'})
+
+        result = list(iter(obj))
+
+        self.assertEqual(result, ['obj0', 'obj1', 'obj2', 'obj3'])
+        self.assertEqual(obj._eplist, ['obj0', 'obj1', 'obj2', 'obj3'])
+        self.assertEqual(obj._epcache, {
+            'ep1': entry._unavailable,
+            'ep2': 'cached',
+            'ep3': 'obj2',
+        })
 
     def test_contains_empty(self):
         obj = self.make_obj()

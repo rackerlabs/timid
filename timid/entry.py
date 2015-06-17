@@ -48,6 +48,50 @@ class NamespaceCache(object):
         # Cache of successfully loaded entrypoints
         self._epcache = {}
 
+        # Cache of successfully iterated entrypoints
+        self._eplist = None
+
+    def __iter__(self):
+        """
+        Iterate over all the defined entrypoints.  This may return
+        multiple entrypoints of the same name.
+
+        :returns: An iterator over all defined and loadable entrypoint
+                  objects.  The iteration will be ordered by
+                  entrypoint name, but no further ordering is imposed
+                  on the objects.
+        """
+
+        # Short-circuit and use our cached list
+        if self._eplist is not None:
+            for ep_obj in self._eplist:
+                yield ep_obj
+            return
+
+        # OK, the list is not cached yet, so we'll have to create it
+        self._eplist = []
+        for name, eps in sorted(self._entrypoints.items(), key=lambda x: x[0]):
+            for ep in eps:
+                # Load the entrypoint
+                try:
+                    ep_obj = ep.load()
+                except (ImportError, AttributeError,
+                        pkg_resources.UnknownExtra):
+                    continue
+
+                # If it's the first for that entrypoint, cache it
+                self._epcache.setdefault(name, ep_obj)
+
+                # Cache it in the list
+                self._eplist.append(ep_obj)
+
+                yield ep_obj
+
+            # At the end of the entrypoints loop, the _epcache[name]
+            # should be set to something; if it's not, we couldn't
+            # load any of the entrypoints, so mark it unavailable
+            self._epcache.setdefault(name, _unavailable)
+
     def __contains__(self, name):
         """
         Determine if an entrypoint is available.  Note that no attempt is
