@@ -157,21 +157,6 @@ class StepItemTest(unittest.TestCase):
         cls.assert_called_once_with('ctxt', 'name', 'conf', 'step_addr')
 
 
-class IterModsTest(unittest.TestCase):
-    def test_function(self):
-        mods = {
-            5: ['mod0', 'mod1', 'mod2', 'mod3'],
-            10: ['mod4', 'mod5'],
-            11: ['mod6'],
-            15: [],
-            20: ['mod7'],
-        }
-
-        result = list(steps._iter_mods(mods))
-
-        self.assertEqual(result, ['mod%d' % i for i in range(8)])
-
-
 class ActionForTest(object):
     pass
 

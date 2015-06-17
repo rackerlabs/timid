@@ -338,23 +338,6 @@ class StepItem(object):
         return self.cls(ctxt, self.name, self.conf, step_addr)
 
 
-def _iter_mods(mods):
-    """
-    A generator to iterate over a dictionary of modifiers, where the
-    dictionary keys are priorities and the values are lists of
-    modifiers of that priority.
-
-    :param mods: The modifiers dictionary.
-
-    :returns: A generator that yields each ``StepItem`` object in the
-              correct order.
-    """
-
-    for _prio, mods in sorted(mods.items(), key=lambda x: x[0]):
-        for item in mods:
-            yield item
-
-
 class Step(object):
     """
     Represents a test step.
@@ -508,7 +491,7 @@ class Step(object):
         # OK, build our modifiers list and preprocess the action
         # configuration
         modifiers = []
-        for mod_item in _iter_mods(mod_items):
+        for mod_item in utils.iter_prio_dict(mod_items):
             # Verify that the modifier is compatible with the
             # action
             if mod_item.cls.restriction & action_type == 0:

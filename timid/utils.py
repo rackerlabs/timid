@@ -314,3 +314,23 @@ def schema_validate(instance, schema, exc_class, *prefix, **kwargs):
 
         # Raise the target exception
         raise exc_class(message, **kwargs)
+
+
+def iter_prio_dict(prio_dict):
+    """
+    Iterate over a priority dictionary.  A priority dictionary is a
+    dictionary keyed by integer priority, with the values being lists
+    of objects.  This generator will iterate over the dictionary in
+    priority order (from lowest integer value to highest integer
+    value), yielding each object in the lists in turn.
+
+    :param prio_dict: A priority dictionary, as described above.
+
+    :returns: An iterator that yields each object in the correct
+              order, based on priority and ordering within the
+              priority values.
+    """
+
+    for _prio, objs in sorted(prio_dict.items(), key=lambda x: x[0]):
+        for obj in objs:
+            yield obj

@@ -278,3 +278,18 @@ class SchemaValidateTest(unittest.TestCase):
             })
         else:
             self.fail('Failed to raise SchemaException')
+
+
+class IterPrioDictTest(unittest.TestCase):
+    def test_function(self):
+        prio_dict = {
+            5: ['obj0', 'obj1', 'obj2', 'obj3'],
+            10: ['obj4', 'obj5'],
+            11: ['obj6'],
+            15: [],
+            20: ['obj7'],
+        }
+
+        result = list(utils.iter_prio_dict(prio_dict))
+
+        self.assertEqual(result, ['obj%d' % i for i in range(8)])
