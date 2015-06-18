@@ -93,6 +93,7 @@ setuptools.setup(
             'env = timid.environment:EnvironmentAction',
             'include = timid.steps:IncludeAction',
             'run = timid.environment:RunAction',
+            'var = timid.context:VariableAction',
         ],
         'timid.modifiers': [
         ],
