@@ -33,6 +33,7 @@ SKIPPED = 0
 SUCCESS = 1
 FAILURE = 2
 ERROR = 3
+states = ['SKIPPED', 'SUCCESS', 'FAILURE', 'ERROR']
 
 
 class ConfigError(Exception):
@@ -534,7 +535,7 @@ class Step(object):
         """
         Initialize a ``Step`` instance.
 
-        ;param step_addr: The address of the step in the test
+        :param step_addr: The address of the step in the test
                           configuration.
         :param action: An ``Action`` instance.
         :param modifiers: A list of ``Modifier`` instances, in the
