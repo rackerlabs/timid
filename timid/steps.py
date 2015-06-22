@@ -562,6 +562,7 @@ class Step(object):
         """
 
         # Begin by walking the modifiers
+        i = -1
         for i in six.moves.range(len(self.modifiers)):
             result = self.modifiers[i].pre_call(
                 ctxt, self.modifiers[:i], self.modifiers[i + 1:], self.action)
@@ -584,10 +585,10 @@ class Step(object):
 
         # Now walk the modifiers in reverse order for result
         # processing
-        for i in six.moves.range(i, -1, -1):
-            result = self.modifiers[i].post_call(
-                ctxt, result, self.action, self.modifiers[i + 1:],
-                self.modifiers[:i])
+        for j in six.moves.range(i, -1, -1):
+            result = self.modifiers[j].post_call(
+                ctxt, result, self.action, self.modifiers[j + 1:],
+                self.modifiers[:j])
 
         return result
 

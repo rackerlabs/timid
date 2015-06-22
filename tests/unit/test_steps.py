@@ -852,6 +852,17 @@ class StepTest(unittest.TestCase):
                 self.assertEqual(len(mod.method_calls), 0)
         self.assertFalse(mock_StepResult.called)
 
+    @mock.patch.object(steps, 'StepResult')
+    def test_call_nomod(self, mock_StepResult):
+        action = mock.Mock(return_value='result')
+        obj = steps.Step('addr', action, [], 'name', 'desc')
+
+        result = obj('ctxt')
+
+        self.assertEqual(result, 'result')
+        action.assert_called_once_with('ctxt')
+        self.assertFalse(mock_StepResult.called)
+
 
 class StepResultTest(unittest.TestCase):
     def test_init_base(self):
