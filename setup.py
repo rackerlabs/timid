@@ -96,6 +96,8 @@ setuptools.setup(
             'var = timid.context:VariableAction',
         ],
         'timid.modifiers': [
+            'when = timid.modifiers:ConditionalModifier',
+            'ignore-errors = timid.modifiers:IgnoreErrorModifier',
         ],
     },
 )
