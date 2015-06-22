@@ -682,7 +682,7 @@ class ProcessorTest(unittest.TestCase):
         args = mock.Mock(directory='directory', debug=False)
 
         gen = main._processor(args)
-        gen.next()
+        next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
@@ -707,7 +707,7 @@ class ProcessorTest(unittest.TestCase):
         args = mock.Mock(directory='directory', debug=True)
 
         gen = main._processor(args)
-        gen.next()
+        next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
@@ -732,7 +732,7 @@ class ProcessorTest(unittest.TestCase):
         args = mock.Mock(directory='directory', debug=False)
 
         gen = main._processor(args)
-        gen.next()
+        next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
@@ -757,7 +757,7 @@ class ProcessorTest(unittest.TestCase):
         args = mock.Mock(directory='directory', debug=False)
 
         gen = main._processor(args)
-        gen.next()
+        next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
@@ -784,7 +784,7 @@ class ProcessorTest(unittest.TestCase):
         args = mock.Mock(directory='directory', debug=True)
 
         gen = main._processor(args)
-        gen.next()
+        next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
