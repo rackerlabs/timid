@@ -1077,8 +1077,9 @@ class SensitiveDictActionForTest(steps.SensitiveDictAction):
 
 
 class SensitiveDictActionTest(unittest.TestCase):
+    @mock.patch.object(os.path, 'dirname', return_value='/root/dir')
     @mock.patch.object(steps.Action, '__init__', return_value=None)
-    def test_init(self, mock_init):
+    def test_init_base(self, mock_init, mock_dirname):
         ctxt = mock.Mock(**{
             'template.side_effect': lambda x: '%s_tmpl' % x,
         })
@@ -1086,21 +1087,84 @@ class SensitiveDictActionTest(unittest.TestCase):
             'set': {'a': 5, 'b': 7},
             'unset': ['b', 'c', 'd'],
             'sensitive': ['a', 'c', 'e'],
+            'files': ['file1', 'file2', 'file3'],
         }
+        addr = mock.Mock(fname='file/name')
 
-        result = SensitiveDictActionForTest(ctxt, 'test', conf, 'addr')
+        result = SensitiveDictActionForTest(ctxt, 'test', conf, addr)
 
         self.assertEqual(result.set_vars, {'a': '5_tmpl', 'b': '7_tmpl'})
         self.assertEqual(result.unset_vars, set(['b', 'c', 'd']))
         self.assertEqual(result.sensitive_vars, set(['a', 'c', 'e']))
-        mock_init.assert_called_once_with(ctxt, 'test', conf, 'addr')
+        self.assertEqual(result.files,
+                         ['file1_tmpl', 'file2_tmpl', 'file3_tmpl'])
+        self.assertEqual(result.dirname, '/root/dir')
+        mock_init.assert_called_once_with(ctxt, 'test', conf, addr)
         ctxt.template.assert_has_calls([
             mock.call(5),
             mock.call(7),
+            mock.call('file1'),
+            mock.call('file2'),
+            mock.call('file3'),
         ], any_order=True)
+        mock_dirname.assert_called_once_with('file/name')
 
+    @mock.patch.object(os.path, 'dirname', return_value='')
     @mock.patch.object(steps.Action, '__init__', return_value=None)
-    def test_call_base(self, mock_init):
+    def test_init_alt(self, mock_init, mock_dirname):
+        ctxt = mock.Mock(**{
+            'template.side_effect': lambda x: '%s_tmpl' % x,
+        })
+        conf = {
+            'set': {'a': 5, 'b': 7},
+            'unset': ['b', 'c', 'd'],
+            'sensitive': ['a', 'c', 'e'],
+            'files': ['file1', 'file2', 'file3'],
+        }
+        addr = mock.Mock(fname='file/name')
+
+        result = SensitiveDictActionForTest(ctxt, 'test', conf, addr)
+
+        self.assertEqual(result.set_vars, {'a': '5_tmpl', 'b': '7_tmpl'})
+        self.assertEqual(result.unset_vars, set(['b', 'c', 'd']))
+        self.assertEqual(result.sensitive_vars, set(['a', 'c', 'e']))
+        self.assertEqual(result.files,
+                         ['file1_tmpl', 'file2_tmpl', 'file3_tmpl'])
+        self.assertEqual(result.dirname, os.curdir)
+        mock_init.assert_called_once_with(ctxt, 'test', conf, addr)
+        ctxt.template.assert_has_calls([
+            mock.call(5),
+            mock.call(7),
+            mock.call('file1'),
+            mock.call('file2'),
+            mock.call('file3'),
+        ], any_order=True)
+        mock_dirname.assert_called_once_with('file/name')
+
+    @mock.patch.object(builtins, 'open')
+    @mock.patch('yaml.load')
+    @mock.patch('timid.utils.canonicalize_path', side_effect=lambda x, y: y)
+    @mock.patch.object(os.path, 'dirname', return_value='/root/dir')
+    @mock.patch.object(steps.Action, '__init__', return_value=None)
+    def test_call_base(self, mock_init, mock_dirname, mock_canonicalize_path,
+                       mock_load, mock_open):
+        def fake_load(fh):
+            if isinstance(fh.data, Exception):
+                raise fh.data
+            return fh.data
+        mock_load.side_effect = fake_load
+        files = {
+            'f1.yaml': TestingException("can't open"),
+            'f2.yaml': mock.MagicMock(data=TestingException("can't read")),
+            'f3.yaml': mock.MagicMock(data=['one', 'two', 'three']),
+            'f4.yaml': mock.MagicMock(data={'a': 2, 'f': 11}),
+            'f5.yaml': mock.MagicMock(data={'f': 12, 'g': 13}),
+        }
+        for fhmock in files.values():
+            if not isinstance(fhmock, Exception):
+                fhmock.__enter__.return_value = fhmock
+                fhmock.__exit__.return_value = False
+        mock_open.side_effect = lambda x: files[x]
         ctxt = mock.Mock(**{
             'template.side_effect': lambda x: (lambda y: x),
             'attr': {'a': 1, 'b': 3, 'c': 5, 'd': 7, 'e': 9},
@@ -1108,24 +1172,32 @@ class SensitiveDictActionTest(unittest.TestCase):
         conf = {
             'set': {'a': 5, 'b': 7},
             'unset': ['b', 'c', 'd'],
+            'files': ['f1.yaml', 'f2.yaml', 'f3.yaml', 'f4.yaml', 'f5.yaml'],
         }
-        action = SensitiveDictActionForTest(ctxt, 'test', conf, 'addr')
+        addr = mock.Mock(fname='file_name')
+        action = SensitiveDictActionForTest(ctxt, 'test', conf, addr)
 
         result = action(ctxt)
 
         self.assertTrue(isinstance(result, steps.StepResult))
         self.assertEqual(result.state, steps.SUCCESS)
-        self.assertEqual(ctxt.attr, {'a': 5, 'b': 7, 'e': 9})
+        self.assertEqual(ctxt.attr, {'a': 5, 'b': 7, 'e': 9, 'f': 12, 'g': 13})
 
+    @mock.patch.object(builtins, 'open')
+    @mock.patch('yaml.load')
+    @mock.patch('timid.utils.canonicalize_path', side_effect=lambda x, y: y)
+    @mock.patch.object(os.path, 'dirname', return_value='/root/dir')
     @mock.patch.object(steps.Action, '__init__', return_value=None)
-    def test_call_sensitive(self, mock_init):
+    def test_call_sensitive(self, mock_init, mock_dirname,
+                            mock_canonicalize_path, mock_load, mock_open):
         ctxt = mock.Mock(**{
             'template.side_effect': lambda x: (lambda y: x),
         })
         conf = {
             'sensitive': ['a', 'c', 'e'],
         }
-        action = SensitiveDictActionForTest(ctxt, 'test', conf, 'addr')
+        addr = mock.Mock(fname='file_name')
+        action = SensitiveDictActionForTest(ctxt, 'test', conf, addr)
 
         result = action(ctxt)
 
@@ -1136,6 +1208,9 @@ class SensitiveDictActionTest(unittest.TestCase):
             mock.call('c'),
             mock.call('e'),
         ], any_order=True)
+        self.assertFalse(mock_canonicalize_path.called)
+        self.assertFalse(mock_load.called)
+        self.assertFalse(mock_open.called)
 
 
 class IncludeActionTest(unittest.TestCase):

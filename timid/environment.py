@@ -481,13 +481,20 @@ class EnvironmentAction(steps.SensitiveDictAction):
             - OTHER_VAR
             sensitive:
             - SENS_VAR
+            files:
+            - fname1.yaml
+            - fname2.yaml
 
     This action would set the environment variable named "ENV_VAR" to
-    the value "value", unset the environment variable "OTHER_VAR", and
-    mark the environment variable "SENS_VAR" as a sensitive variable.
+    the value "value", unset the environment variable "OTHER_VAR",
+    mark the environment variable "SENS_VAR" as a sensitive variable,
+    and read the files "fname1.yaml" and "fname2.yaml" from the
+    directory containing the file specifying the action.
 
     Note that if an environment variable is present under both the
-    "set" and "unset" keys, the "set" will take precedence.
+    "set" and "unset" keys, the "set" will take precedence.  Also note
+    that variable file reading is performed before any other
+    operations.
     """
 
     # Schema for validating the configuration; this contains tweaks
@@ -504,6 +511,10 @@ class EnvironmentAction(steps.SensitiveDictAction):
                 'items': {'type': 'string'},
             },
             'sensitive': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+            'files': {
                 'type': 'array',
                 'items': {'type': 'string'},
             },

@@ -99,13 +99,19 @@ class VariableAction(steps.SensitiveDictAction):
             - other_var
             sensitive:
             - sens_var
+            files:
+            - fname1.yaml
+            - fname2.yaml
 
     This action would set the variable named "var" to the value
-    "value", unset the variable "other_var", and mark the variable
-    "sens_var" as a sensitive variable.
+    "value", unset the variable "other_var", mark the variable
+    "sens_var" as a sensitive variable, and read the files
+    "fname1.yaml" and "fname2.yaml" from the directory containing the
+    file specifying the action.
 
     Note that if a variable is present under both the "set" and
-    "unset" keys, the "set" will take precedence.
+    "unset" keys, the "set" will take precedence.  Also note that
+    variable file reading is performed before any other operations.
     """
 
     # The name of the context attribute affected by this action

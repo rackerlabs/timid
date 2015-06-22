@@ -693,13 +693,19 @@ class SensitiveDictAction(Action):
             - other_var
             sensitive:
             - sens_var
+            files:
+            - fname1.yaml
+            - fname2.yaml
 
     This action would set the variable named "var" to the value
-    "value", unset the variable "other_var", and mark the variable
-    "sens_var" as a sensitive variable.
+    "value", unset the variable "other_var", mark the variable
+    "sens_var" as a sensitive variable, and read the files
+    "fname1.yaml" and "fname2.yaml" from the directory containing the
+    file specifying the action.
 
     Note that if a variable is present under both the "set" and
-    "unset" keys, the "set" will take precedence.
+    "unset" keys, the "set" will take precedence.  Also note that
+    variable file reading is performed before any other operations.
     """
 
     # Schema for validating the configuration
@@ -712,6 +718,10 @@ class SensitiveDictAction(Action):
                 'items': {'type': 'string'},
             },
             'sensitive': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+            'files': {
                 'type': 'array',
                 'items': {'type': 'string'},
             },
@@ -747,6 +757,11 @@ class SensitiveDictAction(Action):
         # Now do the unset and sensitive sets
         self.unset_vars = set(config.get('unset', []))
         self.sensitive_vars = set(config.get('sensitive', []))
+        self.files = [ctxt.template(fn) for fn in config.get('files', [])]
+
+        # Save the directory of the file the action is in for relative
+        # interpretation
+        self.dirname = os.path.dirname(step_addr.fname) or os.curdir
 
     def __call__(self, ctxt):
         """
@@ -760,6 +775,23 @@ class SensitiveDictAction(Action):
 
         # First, select the correct context attribute
         sensitive_dict = getattr(ctxt, self.context_attr)
+
+        # Next, read in the files in order
+        for ftmpl in self.files:
+            fpath = utils.canonicalize_path(self.dirname, ftmpl(ctxt))
+            try:
+                with open(fpath) as f:
+                    var_data = yaml.load(f)
+            except Exception as exc:
+                # Ignore missing variable files
+                continue
+
+            # Make sure the contents are a dictionary
+            if not isinstance(var_data, collections.Mapping):
+                continue
+
+            # Update the dictionary
+            sensitive_dict.update(var_data)
 
         # Now, apply the sensitive and unset changes
         for var in self.sensitive_vars:
