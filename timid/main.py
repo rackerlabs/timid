@@ -99,6 +99,7 @@ def timid(ctxt, test, key=None, check=False, exts=None, debug=False):
     for idx, step in enumerate(ctxt.steps):
         # Emit information about what we're doing
         print('[Step %d]: %s . . . ' % (idx, step.name), end='')
+        sys.stdout.flush()
 
         # Run through extension hooks
         if exts.pre_step(ctxt, step, idx):
