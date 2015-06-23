@@ -15,15 +15,84 @@
 
 from __future__ import print_function
 
+import argparse
 import os
 import sys
 import traceback
 
 import cli_tools
+import six
 
 from timid import context
 from timid import extensions
 from timid import steps
+
+
+class DictAction(argparse.Action):
+    """
+    An ``argparse.Action`` subclass used for command line arguments
+    that are used to designate a key and its corresponding value for a
+    dictionary.
+    """
+
+    # Mapping between types and conversion functions
+    _types = {
+        'str': six.text_type,
+        'string': six.text_type,
+        'int': int,
+        'integer': int,
+        'bool': lambda x: x.lower() == 'true',
+        'boolean': lambda x: x.lower() == 'true',
+    }
+
+    def __init__(self, option_strings, dest, **kwargs):
+        """
+        Initialize a ``DictAction`` object.
+
+        :param option_strings: A list of option strings.
+        :param dest: The target attribute to store the option values
+                     in.
+        :param allow_type: A boolean indicating whether the value type
+                           may be designated.  If ``False``, the value
+                           type is always treated as a string.
+        """
+
+        # Figure out whether to allow a type designation
+        allow_type = kwargs.pop('allow_type', False)
+
+        # Initialize the Action
+        super(DictAction, self).__init__(option_strings, dest, **kwargs)
+
+        # Save the information about allowing type designations
+        self.allow_type = allow_type
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        """
+        Called when encountering an argument bound to the ``DictAction``
+        object.
+
+        :param parser: An ``argparse.ArgumentParser`` object.
+        :param namespace: The ``argparse.Namespace`` into which to
+                          store argument values.
+        :param values: The values that were passed for the argument.
+        :param option_string: The string used to invoke the option.
+        """
+
+        # Get the dictionary out of the namespace
+        argdict = getattr(namespace, self.dest, {})
+        setattr(namespace, self.dest, argdict)
+
+        # Now parse the values
+        type_ = six.text_type
+        key, _eq, value = values.partition('=')
+        if self.allow_type and ':' in key:
+            type_str, _colon, key = key.partition(':')
+            if type_str not in self._types:
+                parser.error('Unrecognized value type "%s"' % type_str)
+            type_ = self._types[type_str]
+
+        # Store the value in the dictionary
+        argdict[key] = type_(value)
 
 
 @cli_tools.argument(
@@ -49,6 +118,26 @@ from timid import steps
     default=False,
     action='store_true',
     help='Syntax check the test steps specified.',
+)
+@cli_tools.argument(
+    '--variable', '-V',
+    dest='variables',
+    action=DictAction,
+    default={},
+    help='Specify the value of a variable.  Variables are specified as '
+    '"key=value".  The value type may be specified by prefixing the key '
+    'name with the type name, followed by a ":", e.g., "bool:var=true".  '
+    'Recognized types are: "str", "string", "int", "integer", "bool", and '
+    '"boolean".  For boolean values, only "true" (in any case) is recognized '
+    'as a true value; all other values map to a false value.',
+    allow_type=True,
+)
+@cli_tools.argument(
+    '--environment', '-e',
+    action=DictAction,
+    default={},
+    help='Specify the value of an environment variable.  This overrides any '
+    'variable of the same name present in the current environment.',
 )
 @cli_tools.argument(
     '--debug', '-d',
@@ -161,6 +250,10 @@ def _processor(args):
 
     # Now set up the extension set
     args.exts = extensions.ExtensionSet.activate(args.ctxt, args)
+
+    # Update the environment and the variables
+    args.ctxt.environment.update(args.environment)
+    args.ctxt.variables.update(args.variables)
 
     # Call the actual timid() function
     try:

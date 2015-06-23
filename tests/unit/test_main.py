@@ -27,6 +27,90 @@ class TestingException(Exception):
     pass
 
 
+class DictActionTest(unittest.TestCase):
+    truth_table = {
+        'true': True,
+        'True': True,
+        'TRUE': True,
+        'other': False,
+        'false': False,
+    }
+
+    def test_types_bool(self):
+        for value, expected in self.truth_table.items():
+            self.assertEqual(expected,
+                             main.DictAction._types['bool'](value))
+
+    def test_types_boolean(self):
+        for value, expected in self.truth_table.items():
+            self.assertEqual(expected,
+                             main.DictAction._types['boolean'](value))
+
+    @mock.patch('argparse.Action.__init__', return_value=False)
+    def test_init_base(self, mock_init):
+        result = main.DictAction('opt_strs', 'dest', a=1, b=2, c=3)
+
+        self.assertEqual(result.allow_type, False)
+        mock_init.assert_called_once_with('opt_strs', 'dest', a=1, b=2, c=3)
+
+    @mock.patch('argparse.Action.__init__', return_value=False)
+    def test_init_alt(self, mock_init):
+        result = main.DictAction('opt_strs', 'dest', a=1, b=2, c=3,
+                                 allow_type=True)
+
+        self.assertEqual(result.allow_type, True)
+        mock_init.assert_called_once_with('opt_strs', 'dest', a=1, b=2, c=3)
+
+    def test_call_base(self):
+        parser = mock.Mock(**{'error.side_effect': TestingException('exit')})
+        namespace = mock.Mock(spec=[])
+        obj = main.DictAction('opt_strs', 'dest')
+
+        obj(parser, namespace, 'key=value')
+
+        self.assertEqual(namespace.dest, {'key': 'value'})
+        self.assertFalse(parser.error.called)
+
+    def test_call_merge(self):
+        parser = mock.Mock(**{'error.side_effect': TestingException('exit')})
+        namespace = mock.Mock(dest={'a': 1})
+        obj = main.DictAction('opt_strs', 'dest')
+
+        obj(parser, namespace, 'key=value')
+
+        self.assertEqual(namespace.dest, {'a': 1, 'key': 'value'})
+        self.assertFalse(parser.error.called)
+
+    def test_call_type_notallowed(self):
+        parser = mock.Mock(**{'error.side_effect': TestingException('exit')})
+        namespace = mock.Mock(spec=[])
+        obj = main.DictAction('opt_strs', 'dest')
+
+        obj(parser, namespace, 'str:key=value')
+
+        self.assertEqual(namespace.dest, {'str:key': 'value'})
+        self.assertFalse(parser.error.called)
+
+    def test_call_type_allowed(self):
+        parser = mock.Mock(**{'error.side_effect': TestingException('exit')})
+        namespace = mock.Mock(spec=[])
+        obj = main.DictAction('opt_strs', 'dest', allow_type=True)
+
+        obj(parser, namespace, 'int:key=23')
+
+        self.assertEqual(namespace.dest, {'key': 23})
+        self.assertFalse(parser.error.called)
+
+    def test_call_type_unknown(self):
+        parser = mock.Mock(**{'error.side_effect': TestingException('exit')})
+        namespace = mock.Mock(spec=[])
+        obj = main.DictAction('opt_strs', 'dest', allow_type=True)
+
+        self.assertRaises(TestingException, obj,
+                          parser, namespace, 'unk:key=23')
+        parser.error.assert_called_once_with('Unrecognized value type "unk"')
+
+
 class TimidTest(unittest.TestCase):
     @mock.patch('sys.stdout', six.StringIO())
     @mock.patch('sys.stderr', six.StringIO())
@@ -670,7 +754,8 @@ class ArgsTest(unittest.TestCase):
 
 
 class ProcessorTest(unittest.TestCase):
-    @mock.patch('timid.context.Context', return_value='ctxt')
+    @mock.patch('timid.context.Context',
+                return_value=mock.Mock(environment={}, variables={}))
     @mock.patch('timid.extensions.ExtensionSet.activate',
                 return_value=mock.Mock(**{
                     'finalize.side_effect': lambda c, r: r,
@@ -679,13 +764,16 @@ class ProcessorTest(unittest.TestCase):
     def test_base(self, mock_print_exc, mock_activate, mock_Context):
         ctxt = mock_Context.return_value
         exts = mock_activate.return_value
-        args = mock.Mock(directory='directory', debug=False)
+        args = mock.Mock(directory='directory', debug=False,
+                         environment={}, variables={})
 
         gen = main._processor(args)
         next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
+        self.assertEqual(ctxt.environment, {})
+        self.assertEqual(ctxt.variables, {})
         self.assertFalse(mock_print_exc.called)
         self.assertFalse(exts.finalize.called)
 
@@ -695,7 +783,41 @@ class ProcessorTest(unittest.TestCase):
         self.assertFalse(mock_print_exc.called)
         exts.finalize.assert_called_once_with(ctxt, None)
 
-    @mock.patch('timid.context.Context', return_value='ctxt')
+    @mock.patch('timid.context.Context',
+                return_value=mock.Mock(
+                    environment={'a': 1, 'b': 2, 'c': 3},
+                    variables={'x': 3, 'y': 2, 'z': 1},
+                ))
+    @mock.patch('timid.extensions.ExtensionSet.activate',
+                return_value=mock.Mock(**{
+                    'finalize.side_effect': lambda c, r: r,
+                }))
+    @mock.patch('traceback.print_exc')
+    def test_vars(self, mock_print_exc, mock_activate, mock_Context):
+        ctxt = mock_Context.return_value
+        exts = mock_activate.return_value
+        args = mock.Mock(directory='directory', debug=False,
+                         environment={'c': 'z', 'd': 0},
+                         variables={'x': 'c', 'w': 0})
+
+        gen = main._processor(args)
+        next(gen)
+
+        self.assertEqual(args.ctxt, ctxt)
+        self.assertEqual(args.exts, exts)
+        self.assertEqual(ctxt.environment, {'a': 1, 'b': 2, 'c': 'z', 'd': 0})
+        self.assertEqual(ctxt.variables, {'x': 'c', 'y': 2, 'z': 1, 'w': 0})
+        self.assertFalse(mock_print_exc.called)
+        self.assertFalse(exts.finalize.called)
+
+        result = gen.send(None)
+
+        self.assertEqual(result, None)
+        self.assertFalse(mock_print_exc.called)
+        exts.finalize.assert_called_once_with(ctxt, None)
+
+    @mock.patch('timid.context.Context',
+                return_value=mock.Mock(environment={}, variables={}))
     @mock.patch('timid.extensions.ExtensionSet.activate',
                 return_value=mock.Mock(**{
                     'finalize.side_effect': lambda c, r: r,
@@ -704,13 +826,16 @@ class ProcessorTest(unittest.TestCase):
     def test_debug(self, mock_print_exc, mock_activate, mock_Context):
         ctxt = mock_Context.return_value
         exts = mock_activate.return_value
-        args = mock.Mock(directory='directory', debug=True)
+        args = mock.Mock(directory='directory', debug=True,
+                         environment={}, variables={})
 
         gen = main._processor(args)
         next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
+        self.assertEqual(ctxt.environment, {})
+        self.assertEqual(ctxt.variables, {})
         self.assertFalse(mock_print_exc.called)
         self.assertFalse(exts.finalize.called)
 
@@ -720,7 +845,8 @@ class ProcessorTest(unittest.TestCase):
         self.assertFalse(mock_print_exc.called)
         exts.finalize.assert_called_once_with(ctxt, None)
 
-    @mock.patch('timid.context.Context', return_value='ctxt')
+    @mock.patch('timid.context.Context',
+                return_value=mock.Mock(environment={}, variables={}))
     @mock.patch('timid.extensions.ExtensionSet.activate',
                 return_value=mock.Mock(**{
                     'finalize.return_value': 'alt result',
@@ -729,13 +855,16 @@ class ProcessorTest(unittest.TestCase):
     def test_change_result(self, mock_print_exc, mock_activate, mock_Context):
         ctxt = mock_Context.return_value
         exts = mock_activate.return_value
-        args = mock.Mock(directory='directory', debug=False)
+        args = mock.Mock(directory='directory', debug=False,
+                         environment={}, variables={})
 
         gen = main._processor(args)
         next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
+        self.assertEqual(ctxt.environment, {})
+        self.assertEqual(ctxt.variables, {})
         self.assertFalse(mock_print_exc.called)
         self.assertFalse(exts.finalize.called)
 
@@ -745,7 +874,8 @@ class ProcessorTest(unittest.TestCase):
         self.assertFalse(mock_print_exc.called)
         exts.finalize.assert_called_once_with(ctxt, None)
 
-    @mock.patch('timid.context.Context', return_value='ctxt')
+    @mock.patch('timid.context.Context',
+                return_value=mock.Mock(environment={}, variables={}))
     @mock.patch('timid.extensions.ExtensionSet.activate',
                 return_value=mock.Mock(**{
                     'finalize.side_effect': lambda c, r: r,
@@ -754,13 +884,16 @@ class ProcessorTest(unittest.TestCase):
     def test_exception(self, mock_print_exc, mock_activate, mock_Context):
         ctxt = mock_Context.return_value
         exts = mock_activate.return_value
-        args = mock.Mock(directory='directory', debug=False)
+        args = mock.Mock(directory='directory', debug=False,
+                         environment={}, variables={})
 
         gen = main._processor(args)
         next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
+        self.assertEqual(ctxt.environment, {})
+        self.assertEqual(ctxt.variables, {})
         self.assertFalse(mock_print_exc.called)
         self.assertFalse(exts.finalize.called)
 
@@ -771,7 +904,8 @@ class ProcessorTest(unittest.TestCase):
         self.assertFalse(mock_print_exc.called)
         exts.finalize.assert_called_once_with(ctxt, exc)
 
-    @mock.patch('timid.context.Context', return_value='ctxt')
+    @mock.patch('timid.context.Context',
+                return_value=mock.Mock(environment={}, variables={}))
     @mock.patch('timid.extensions.ExtensionSet.activate',
                 return_value=mock.Mock(**{
                     'finalize.side_effect': lambda c, r: r,
@@ -781,13 +915,16 @@ class ProcessorTest(unittest.TestCase):
                              mock_Context):
         ctxt = mock_Context.return_value
         exts = mock_activate.return_value
-        args = mock.Mock(directory='directory', debug=True)
+        args = mock.Mock(directory='directory', debug=True,
+                         environment={}, variables={})
 
         gen = main._processor(args)
         next(gen)
 
         self.assertEqual(args.ctxt, ctxt)
         self.assertEqual(args.exts, exts)
+        self.assertEqual(ctxt.environment, {})
+        self.assertEqual(ctxt.variables, {})
         self.assertFalse(mock_print_exc.called)
         self.assertFalse(exts.finalize.called)
 
