@@ -140,12 +140,25 @@ class DictAction(argparse.Action):
     'variable of the same name present in the current environment.',
 )
 @cli_tools.argument(
+    '--verbose', '-v',
+    action='count',
+    default=1,
+    help='Increase verbosity.',
+)
+@cli_tools.argument(
+    '--quiet', '-q',
+    dest='verbose',
+    action='store_const',
+    const=0,
+    help='Decrease verbosity to its minimum.',
+)
+@cli_tools.argument(
     '--debug', '-d',
     action='store_true',
     default=False,
     help='Enable debugging.',
 )
-def timid(ctxt, test, key=None, check=False, exts=None, debug=False):
+def timid(ctxt, test, key=None, check=False, exts=None):
     """
     Execute a test described by a YAML file.
 
@@ -164,7 +177,6 @@ def timid(ctxt, test, key=None, check=False, exts=None, debug=False):
     :param exts: An instance of ``timid.extensions.ExtensionSet``
                  describing the extensions to be called while
                  processing the test steps.
-    :param debug: Controls debugging output.  Defaults to ``False``.
     """
 
     # Normalize the extension set
@@ -174,7 +186,7 @@ def timid(ctxt, test, key=None, check=False, exts=None, debug=False):
     # Begin by reading the steps and adding them to the list in the
     # context (which may already have elements thanks to the
     # extensions)
-    if debug:
+    if ctxt.debug:
         print('Reading test steps from %s%s...' %
               (test, '[%s]' % key if key else ''), file=sys.stderr)
     ctxt.steps += exts.read_steps(ctxt, steps.Step.parse_file(ctxt, test, key))
@@ -187,7 +199,8 @@ def timid(ctxt, test, key=None, check=False, exts=None, debug=False):
     # Now we execute each step in turn
     for idx, step in enumerate(ctxt.steps):
         # Emit information about what we're doing
-        print('[Step %d]: %s . . . ' % (idx, step.name), end='')
+        if ctxt.verbose >= 1:
+            print('[Step %d]: %s . . . ' % (idx, step.name), end='')
         sys.stdout.flush()
 
         # Run through extension hooks
@@ -202,8 +215,9 @@ def timid(ctxt, test, key=None, check=False, exts=None, debug=False):
         exts.post_step(ctxt, step, idx, result)
 
         # Emit the result
-        print('%s%s' % (steps.states[result.state],
-                        ' (ignored)' if result.ignore else ''))
+        if ctxt.verbose >= 1:
+            print('%s%s' % (steps.states[result.state],
+                            ' (ignored)' if result.ignore else ''))
 
         # Was the step a success?
         if not result:
@@ -246,7 +260,7 @@ def _processor(args):
     """
 
     # Begin by initializing a context
-    args.ctxt = context.Context(args.directory)
+    args.ctxt = context.Context(args.verbose, args.debug, args.directory)
 
     # Now set up the extension set
     args.exts = extensions.ExtensionSet.activate(args.ctxt, args)

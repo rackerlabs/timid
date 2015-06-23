@@ -146,7 +146,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml')
 
@@ -201,15 +201,71 @@ class TimidTest(unittest.TestCase):
             'return_value': steps.StepResult(steps.SUCCESS),
         }),
     ])
+    def test_quiet(self, mock_parse_file, mock_ExtensionSet):
+        steps = mock_parse_file.return_value
+        exts = mock_ExtensionSet.return_value
+        for step in steps:
+            # I hate this one feature of the mock library...
+            step.name = step.st_name
+        ctxt = mock.Mock(steps=[], verbose=0, debug=False)
+
+        result = main.timid(ctxt, 'test.yaml')
+
+        self.assertEqual(result, None)
+        mock_ExtensionSet.assert_called_once_with()
+        mock_parse_file.assert_called_once_with(ctxt, 'test.yaml', None)
+        exts.read_steps.assert_called_once_with(ctxt, steps)
+        exts.pre_step.assert_has_calls([
+            mock.call(ctxt, step, idx) for idx, step in enumerate(steps)
+        ])
+        self.assertEqual(exts.pre_step.call_count, len(steps))
+        for step in steps:
+            step.assert_called_once_with(ctxt)
+        exts.post_step.assert_has_calls([
+            mock.call(ctxt, step, idx, step.return_value)
+            for idx, step in enumerate(steps)
+        ])
+        self.assertEqual(exts.post_step.call_count, len(steps))
+        self.assertEqual(sys.stdout.getvalue(), '')
+        self.assertEqual(sys.stderr.getvalue(), '')
+
+    @mock.patch('sys.stdout', six.StringIO())
+    @mock.patch('sys.stderr', six.StringIO())
+    @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
+        'read_steps.side_effect': lambda c, s: s,
+        'pre_step.return_value': False,
+    }))
+    @mock.patch.object(steps.Step, 'parse_file', return_value=[
+        mock.Mock(**{
+            'st_name': 'step0',
+            'return_value': steps.StepResult(steps.SUCCESS),
+        }),
+        mock.Mock(**{
+            'st_name': 'step1',
+            'return_value': steps.StepResult(steps.SUCCESS),
+        }),
+        mock.Mock(**{
+            'st_name': 'step2',
+            'return_value': steps.StepResult(steps.SUCCESS),
+        }),
+        mock.Mock(**{
+            'st_name': 'step3',
+            'return_value': steps.StepResult(steps.SUCCESS),
+        }),
+        mock.Mock(**{
+            'st_name': 'step4',
+            'return_value': steps.StepResult(steps.SUCCESS),
+        }),
+    ])
     def test_debug(self, mock_parse_file, mock_ExtensionSet):
         steps = mock_parse_file.return_value
         exts = mock_ExtensionSet.return_value
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=True)
 
-        result = main.timid(ctxt, 'test.yaml', debug=True)
+        result = main.timid(ctxt, 'test.yaml')
 
         self.assertEqual(result, None)
         mock_ExtensionSet.assert_called_once_with()
@@ -269,7 +325,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml', key='key')
 
@@ -330,9 +386,9 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=True)
 
-        result = main.timid(ctxt, 'test.yaml', key='key', debug=True)
+        result = main.timid(ctxt, 'test.yaml', key='key')
 
         self.assertEqual(result, None)
         mock_ExtensionSet.assert_called_once_with()
@@ -396,7 +452,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml', exts=exts)
 
@@ -460,7 +516,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml', check=True)
 
@@ -514,7 +570,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml')
 
@@ -579,7 +635,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml')
 
@@ -645,7 +701,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml')
 
@@ -714,7 +770,7 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             # I hate this one feature of the mock library...
             step.name = step.st_name
-        ctxt = mock.Mock(steps=[])
+        ctxt = mock.Mock(steps=[], verbose=1, debug=False)
 
         result = main.timid(ctxt, 'test.yaml')
 

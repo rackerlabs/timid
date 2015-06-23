@@ -29,6 +29,8 @@ class ContextTest(unittest.TestCase):
     def test_init_base(self, mock_Environment):
         result = context.Context()
 
+        self.assertEqual(result.verbose, 1)
+        self.assertEqual(result.debug, False)
         self.assertTrue(isinstance(result.variables, utils.SensitiveDict))
         self.assertEqual(result.variables, {})
         self.assertEqual(result.environment, mock_Environment.return_value)
@@ -39,9 +41,11 @@ class ContextTest(unittest.TestCase):
         mock_Environment.assert_called_once_with(cwd=None)
 
     @mock.patch.object(environment, 'Environment')
-    def test_init_cwd(self, mock_Environment):
-        result = context.Context('some/dir/ectory')
+    def test_init_alt(self, mock_Environment):
+        result = context.Context(5, True, 'some/dir/ectory')
 
+        self.assertEqual(result.verbose, 5)
+        self.assertEqual(result.debug, True)
         self.assertTrue(isinstance(result.variables, utils.SensitiveDict))
         self.assertEqual(result.variables, {})
         self.assertEqual(result.environment, mock_Environment.return_value)

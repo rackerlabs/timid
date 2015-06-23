@@ -28,10 +28,14 @@ class Context(object):
     data required to execute a test sequence.
     """
 
-    def __init__(self, cwd=None):
+    def __init__(self, verbose=1, debug=False, cwd=None):
         """
         Initialize a new ``Context`` instance.
         """
+
+        # Save the verbosity and debugging settings
+        self.verbose = verbose
+        self.debug = debug
 
         # Set up the basic variables
         self.variables = utils.SensitiveDict()
