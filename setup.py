@@ -65,7 +65,7 @@ setuptools.setup(
     version='0.1.0',
     author='Kevin L. Mitchell',
     author_email='kevin.mitchell@rackspace.com',
-    url='https://github.rackspace.com/O3Eng/timid',
+    url='https://github.com/rackerlabs/timid',
     description='Timid test runner',
     long_description=readfile('README.rst'),
     license='Apache License (2.0)',
