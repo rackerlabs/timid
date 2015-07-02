@@ -28,6 +28,10 @@ class TestingException(Exception):
     pass
 
 
+class TestingBaseException(BaseException):
+    pass
+
+
 def make_debugger(exit_status=False):
     debugger = mock.MagicMock()
     debugger.__enter__.return_value = debugger
@@ -153,7 +157,7 @@ class ExtensionDebugger(unittest.TestCase):
 
         result = obj.__exit__(None, None, None)
 
-        self.assertEqual(result, True)
+        self.assertEqual(result, None)
         self.assertEqual(obj.ext_cls, None)
         self.assertFalse(mock_print_exception.called)
         self.assertFalse(mock_exit.called)
@@ -167,14 +171,14 @@ class ExtensionDebugger(unittest.TestCase):
 
         result = obj.__exit__(None, None, None)
 
-        self.assertEqual(result, True)
+        self.assertEqual(result, None)
         self.assertEqual(obj.ext_cls, None)
         self.assertFalse(mock_print_exception.called)
         self.assertFalse(mock_exit.called)
 
     @mock.patch('traceback.print_exception')
     @mock.patch('sys.exit')
-    def test_exit_error(self, mock_exit, mock_print_exception):
+    def test_exit_exception(self, mock_exit, mock_print_exception):
         exc = TestingException('error')
         obj = self.get_obj(ext_cls=mock.Mock(__module__='mod',
                                              __name__='name'))
@@ -188,7 +192,7 @@ class ExtensionDebugger(unittest.TestCase):
 
     @mock.patch('traceback.print_exception')
     @mock.patch('sys.exit')
-    def test_exit_error_debug(self, mock_exit, mock_print_exception):
+    def test_exit_exception_debug(self, mock_exit, mock_print_exception):
         exc = TestingException('error')
         obj = self.get_obj(ext_cls=mock.Mock(__module__='mod',
                                              __name__='name'),
@@ -199,6 +203,36 @@ class ExtensionDebugger(unittest.TestCase):
         self.assertEqual(result, False)
         mock_print_exception.assert_called_once_with(
             TestingException, exc, 'tb', file=sys.stderr)
+        mock_exit.assert_called_once_with(
+            'Extension failure calling "method()" for extension "mod.name"')
+
+    @mock.patch('traceback.print_exception')
+    @mock.patch('sys.exit')
+    def test_exit_base_exception(self, mock_exit, mock_print_exception):
+        exc = TestingBaseException('error')
+        obj = self.get_obj(ext_cls=mock.Mock(__module__='mod',
+                                             __name__='name'))
+
+        result = obj.__exit__(TestingBaseException, exc, 'tb')
+
+        self.assertEqual(result, False)
+        self.assertEqual(obj.ext_cls, None)
+        self.assertFalse(mock_print_exception.called)
+        self.assertFalse(mock_exit.called)
+
+    @mock.patch('traceback.print_exception')
+    @mock.patch('sys.exit')
+    def test_exit_base_exception_debug(self, mock_exit, mock_print_exception):
+        exc = TestingBaseException('error')
+        obj = self.get_obj(ext_cls=mock.Mock(__module__='mod',
+                                             __name__='name'),
+                           debug=1)
+
+        result = obj.__exit__(TestingBaseException, exc, 'tb')
+
+        self.assertEqual(result, False)
+        mock_print_exception.assert_called_once_with(
+            TestingBaseException, exc, 'tb', file=sys.stderr)
         mock_exit.assert_called_once_with(
             'Extension failure calling "method()" for extension "mod.name"')
 

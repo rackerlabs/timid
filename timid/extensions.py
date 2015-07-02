@@ -213,8 +213,9 @@ class ExtensionDebugger(object):
                        generated, will be ``None``.
 
         :returns: A ``True`` value if any exception should be ignored,
-                  ``False`` otherwise.  Will always return ``True``
-                  unless debugging is enabled.
+                  ``False`` otherwise.  Will return ``True`` for all
+                  ``Exception`` subclasses unless debugging is
+                  enabled.
         """
 
         # Are we in debugging mode?  Was there an exception?
@@ -234,7 +235,7 @@ class ExtensionDebugger(object):
 
         # Clear the extension class
         self.ext_cls = None
-        return True
+        return exc_type and issubclass(exc_type, Exception)
 
     def __call__(self, ext):
         """
