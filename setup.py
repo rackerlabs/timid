@@ -62,7 +62,7 @@ def readreq(filename):
 # Invoke setup
 setuptools.setup(
     name='timid',
-    version='0.1.0',
+    version='0.1.1',
     author='Kevin L. Mitchell',
     author_email='kevin.mitchell@rackspace.com',
     url='https://github.com/rackerlabs/timid',

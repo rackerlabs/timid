@@ -14,12 +14,14 @@
 #    governing permissions and limitations under the License.
 
 from timid.steps import (SKIPPED, SUCCESS, FAILURE, ERROR, states,
-                         ConfigError, Action, Modifier, Step, StepResult)
+                         ConfigError, Action, Modifier,
+                         StepAddress, Step, StepResult)
 from timid.extensions import Extension
 
 
 __all__ = [
     'SKIPPED', 'SUCCESS', 'FAILURE', 'ERROR', 'states',
-    'ConfigError', 'Action', 'Modifier', 'Step', 'StepResult',
+    'ConfigError', 'Action', 'Modifier',
+    'StepAddress', 'Step', 'StepResult',
     'Extension',
 ]
