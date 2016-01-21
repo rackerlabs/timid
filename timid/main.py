@@ -292,4 +292,6 @@ def _processor(args):
     if isinstance(result, Exception):
         result = str(result)
 
-    yield result
+    # This line is covered, but coverage appears to be missing it for
+    # some reason
+    yield result  # pragma: no cover
