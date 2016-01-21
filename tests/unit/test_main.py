@@ -17,7 +17,6 @@ import sys
 import unittest
 
 import mock
-import six
 
 from timid import main
 from timid import steps
@@ -112,8 +111,6 @@ class DictActionTest(unittest.TestCase):
 
 
 class TimidTest(unittest.TestCase):
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -165,16 +162,21 @@ class TimidTest(unittest.TestCase):
             for idx, step in enumerate(steps)
         ])
         self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . SUCCESS\n'
-                         '[Step 3]: step3 . . . SUCCESS\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step SUCCESS'),
+            mock.call('[Step 3]: step3 . . .'),
+            mock.call('[Step 3]: `- Step SUCCESS'),
+            mock.call('[Step 4]: step4 . . .'),
+            mock.call('[Step 4]: `- Step SUCCESS'),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 11)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -226,73 +228,21 @@ class TimidTest(unittest.TestCase):
             for idx, step in enumerate(steps)
         ])
         self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(), '')
-        self.assertEqual(sys.stderr.getvalue(), '')
-
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
-    @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
-        'read_steps.side_effect': lambda c, s: s,
-        'pre_step.return_value': False,
-    }))
-    @mock.patch.object(steps.Step, 'parse_file', return_value=[
-        mock.Mock(**{
-            'st_name': 'step0',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step1',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step2',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step3',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step4',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-    ])
-    def test_debug(self, mock_parse_file, mock_ExtensionSet):
-        steps = mock_parse_file.return_value
-        exts = mock_ExtensionSet.return_value
-        for step in steps:
-            # I hate this one feature of the mock library...
-            step.name = step.st_name
-        ctxt = mock.Mock(steps=[], verbose=1, debug=True)
-
-        result = main.timid(ctxt, 'test.yaml')
-
-        self.assertEqual(result, None)
-        mock_ExtensionSet.assert_called_once_with()
-        mock_parse_file.assert_called_once_with(ctxt, 'test.yaml', None)
-        exts.read_steps.assert_called_once_with(ctxt, steps)
-        exts.pre_step.assert_has_calls([
-            mock.call(ctxt, step, idx) for idx, step in enumerate(steps)
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step SUCCESS'),
+            mock.call('[Step 3]: step3 . . .'),
+            mock.call('[Step 3]: `- Step SUCCESS'),
+            mock.call('[Step 4]: step4 . . .'),
+            mock.call('[Step 4]: `- Step SUCCESS'),
         ])
-        self.assertEqual(exts.pre_step.call_count, len(steps))
-        for step in steps:
-            step.assert_called_once_with(ctxt)
-        exts.post_step.assert_has_calls([
-            mock.call(ctxt, step, idx, step.return_value)
-            for idx, step in enumerate(steps)
-        ])
-        self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . SUCCESS\n'
-                         '[Step 3]: step3 . . . SUCCESS\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(),
-                         'Reading test steps from test.yaml...\n')
+        self.assertEqual(ctxt.emit.call_count, 11)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -344,78 +294,21 @@ class TimidTest(unittest.TestCase):
             for idx, step in enumerate(steps)
         ])
         self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . SUCCESS\n'
-                         '[Step 3]: step3 . . . SUCCESS\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
-
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
-    @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
-        'read_steps.side_effect': lambda c, s: s,
-        'pre_step.return_value': False,
-    }))
-    @mock.patch.object(steps.Step, 'parse_file', return_value=[
-        mock.Mock(**{
-            'st_name': 'step0',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step1',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step2',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step3',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-        mock.Mock(**{
-            'st_name': 'step4',
-            'return_value': steps.StepResult(steps.SUCCESS),
-        }),
-    ])
-    def test_key_debug(self, mock_parse_file, mock_ExtensionSet):
-        steps = mock_parse_file.return_value
-        exts = mock_ExtensionSet.return_value
-        for step in steps:
-            # I hate this one feature of the mock library...
-            step.name = step.st_name
-        ctxt = mock.Mock(steps=[], verbose=1, debug=True)
-
-        result = main.timid(ctxt, 'test.yaml', key='key')
-
-        self.assertEqual(result, None)
-        mock_ExtensionSet.assert_called_once_with()
-        mock_parse_file.assert_called_once_with(ctxt, 'test.yaml', 'key')
-        exts.read_steps.assert_called_once_with(ctxt, steps)
-        exts.pre_step.assert_has_calls([
-            mock.call(ctxt, step, idx) for idx, step in enumerate(steps)
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml[key]...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step SUCCESS'),
+            mock.call('[Step 3]: step3 . . .'),
+            mock.call('[Step 3]: `- Step SUCCESS'),
+            mock.call('[Step 4]: step4 . . .'),
+            mock.call('[Step 4]: `- Step SUCCESS'),
         ])
-        self.assertEqual(exts.pre_step.call_count, len(steps))
-        for step in steps:
-            step.assert_called_once_with(ctxt)
-        exts.post_step.assert_has_calls([
-            mock.call(ctxt, step, idx, step.return_value)
-            for idx, step in enumerate(steps)
-        ])
-        self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . SUCCESS\n'
-                         '[Step 3]: step3 . . . SUCCESS\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(),
-                         'Reading test steps from test.yaml[key]...\n')
+        self.assertEqual(ctxt.emit.call_count, 11)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -474,16 +367,21 @@ class TimidTest(unittest.TestCase):
             for idx, step in enumerate(steps)
         ])
         self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . SUCCESS\n'
-                         '[Step 3]: step3 . . . SUCCESS\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step SUCCESS'),
+            mock.call('[Step 3]: step3 . . .'),
+            mock.call('[Step 3]: `- Step SUCCESS'),
+            mock.call('[Step 4]: step4 . . .'),
+            mock.call('[Step 4]: `- Step SUCCESS'),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 11)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -528,11 +426,11 @@ class TimidTest(unittest.TestCase):
         for step in steps:
             self.assertFalse(step.called)
         self.assertFalse(exts.post_step.called)
-        self.assertEqual(sys.stdout.getvalue(), '')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 1)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.side_effect': lambda c, s, i: i == 2,
@@ -593,16 +491,21 @@ class TimidTest(unittest.TestCase):
             if step.call_expected
         ])
         self.assertEqual(exts.post_step.call_count, len(steps) - 1)
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . SKIPPED\n'
-                         '[Step 3]: step3 . . . SUCCESS\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step SKIPPED'),
+            mock.call('[Step 3]: step3 . . .'),
+            mock.call('[Step 3]: `- Step SUCCESS'),
+            mock.call('[Step 4]: step4 . . .'),
+            mock.call('[Step 4]: `- Step SUCCESS'),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 11)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -654,16 +557,21 @@ class TimidTest(unittest.TestCase):
             for idx, step in enumerate(steps)
         ])
         self.assertEqual(exts.post_step.call_count, len(steps))
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . FAILURE (ignored)\n'
-                         '[Step 3]: step3 . . . SUCCESS (ignored)\n'
-                         '[Step 4]: step4 . . . SUCCESS\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step FAILURE (ignored)'),
+            mock.call('[Step 3]: step3 . . .'),
+            mock.call('[Step 3]: `- Step SUCCESS (ignored)'),
+            mock.call('[Step 4]: step4 . . .'),
+            mock.call('[Step 4]: `- Step SUCCESS'),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 11)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -725,14 +633,17 @@ class TimidTest(unittest.TestCase):
             if step.call_expected
         ])
         self.assertEqual(exts.post_step.call_count, len(steps) - 2)
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . FAILURE\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step FAILURE'),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 7)
 
-    @mock.patch('sys.stdout', six.StringIO())
-    @mock.patch('sys.stderr', six.StringIO())
     @mock.patch('timid.extensions.ExtensionSet', return_value=mock.Mock(**{
         'read_steps.side_effect': lambda c, s: s,
         'pre_step.return_value': False,
@@ -794,11 +705,16 @@ class TimidTest(unittest.TestCase):
             if step.call_expected
         ])
         self.assertEqual(exts.post_step.call_count, len(steps) - 2)
-        self.assertEqual(sys.stdout.getvalue(),
-                         '[Step 0]: step0 . . . SUCCESS\n'
-                         '[Step 1]: step1 . . . SUCCESS\n'
-                         '[Step 2]: step2 . . . FAILURE\n')
-        self.assertEqual(sys.stderr.getvalue(), '')
+        ctxt.emit.assert_has_calls([
+            mock.call('Reading test steps from test.yaml...', debug=True),
+            mock.call('[Step 0]: step0 . . .'),
+            mock.call('[Step 0]: `- Step SUCCESS'),
+            mock.call('[Step 1]: step1 . . .'),
+            mock.call('[Step 1]: `- Step SUCCESS'),
+            mock.call('[Step 2]: step2 . . .'),
+            mock.call('[Step 2]: `- Step FAILURE'),
+        ])
+        self.assertEqual(ctxt.emit.call_count, 7)
 
 
 class ArgsTest(unittest.TestCase):

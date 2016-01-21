@@ -186,9 +186,8 @@ def timid(ctxt, test, key=None, check=False, exts=None):
     # Begin by reading the steps and adding them to the list in the
     # context (which may already have elements thanks to the
     # extensions)
-    if ctxt.debug:
-        print('Reading test steps from %s%s...' %
-              (test, '[%s]' % key if key else ''), file=sys.stderr)
+    ctxt.emit('Reading test steps from %s%s...' %
+              (test, '[%s]' % key if key else ''), debug=True)
     ctxt.steps += exts.read_steps(ctxt, steps.Step.parse_file(ctxt, test, key))
 
     # If all we were supposed to do was check, well, we've
@@ -199,13 +198,12 @@ def timid(ctxt, test, key=None, check=False, exts=None):
     # Now we execute each step in turn
     for idx, step in enumerate(ctxt.steps):
         # Emit information about what we're doing
-        if ctxt.verbose >= 1:
-            print('[Step %d]: %s . . . ' % (idx, step.name), end='')
-        sys.stdout.flush()
+        ctxt.emit('[Step %d]: %s . . .' % (idx, step.name))
 
         # Run through extension hooks
         if exts.pre_step(ctxt, step, idx):
-            print(steps.states[steps.SKIPPED])
+            ctxt.emit('[Step %d]: `- Step %s' %
+                      (idx, steps.states[steps.SKIPPED]))
             continue
 
         # Now execute the step
@@ -215,9 +213,9 @@ def timid(ctxt, test, key=None, check=False, exts=None):
         exts.post_step(ctxt, step, idx, result)
 
         # Emit the result
-        if ctxt.verbose >= 1:
-            print('%s%s' % (steps.states[result.state],
-                            ' (ignored)' if result.ignore else ''))
+        ctxt.emit('[Step %d]: `- Step %s%s' %
+                  (idx, steps.states[result.state],
+                   ' (ignored)' if result.ignore else ''))
 
         # Was the step a success?
         if not result:

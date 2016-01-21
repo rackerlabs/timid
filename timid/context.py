@@ -85,6 +85,7 @@ class Context(object):
 
         # Emit the message
         print(msg, file=stream)
+        stream.flush()
 
     def template(self, string):
         """
