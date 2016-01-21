@@ -581,7 +581,7 @@ class Step(object):
             else:
                 # Convert a None into an error StepResult
                 if result is None:
-                    result = StepResult(status=ERROR)
+                    result = StepResult(state=ERROR)
 
         # Now walk the modifiers in reverse order for result
         # processing

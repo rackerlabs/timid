@@ -825,7 +825,7 @@ class StepTest(unittest.TestCase):
                     'ctxt', result, action, mods[i + 1:], mods[:i]),
             ])
             self.assertEqual(len(mod.method_calls), 2)
-        mock_StepResult.assert_called_once_with(status=steps.ERROR)
+        mock_StepResult.assert_called_once_with(state=steps.ERROR)
 
     @mock.patch.object(steps, 'StepResult')
     def test_call_modpreempt(self, mock_StepResult):
