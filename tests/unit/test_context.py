@@ -14,10 +14,12 @@
 #    governing permissions and limitations under the License.
 
 import os
+import sys
 import unittest
 
 import jinja2
 import mock
+import six
 
 from timid import context
 from timid import environment
@@ -54,6 +56,50 @@ class ContextTest(unittest.TestCase):
         self.assertEqual(id(result._jinja.globals['env']),
                          id(result.environment))
         mock_Environment.assert_called_once_with(cwd='some/dir/ectory')
+
+    @mock.patch.object(environment, 'Environment')
+    @mock.patch.object(sys, 'stdout', six.StringIO())
+    @mock.patch.object(sys, 'stderr', six.StringIO())
+    def test_emit_debug_true(self, mock_Environment):
+        obj = context.Context(5, True, 'some/dir/ectory')
+
+        obj.emit('test message', level=10, debug=True)
+
+        self.assertEqual(sys.stdout.getvalue(), '')
+        self.assertEqual(sys.stderr.getvalue(), 'test message\n')
+
+    @mock.patch.object(environment, 'Environment')
+    @mock.patch.object(sys, 'stdout', six.StringIO())
+    @mock.patch.object(sys, 'stderr', six.StringIO())
+    def test_emit_debug_false(self, mock_Environment):
+        obj = context.Context(5, False, 'some/dir/ectory')
+
+        obj.emit('test message', level=10, debug=True)
+
+        self.assertEqual(sys.stdout.getvalue(), '')
+        self.assertEqual(sys.stderr.getvalue(), '')
+
+    @mock.patch.object(environment, 'Environment')
+    @mock.patch.object(sys, 'stdout', six.StringIO())
+    @mock.patch.object(sys, 'stderr', six.StringIO())
+    def test_emit_verbosity_low(self, mock_Environment):
+        obj = context.Context(1, False, 'some/dir/ectory')
+
+        obj.emit('test message', level=3)
+
+        self.assertEqual(sys.stdout.getvalue(), '')
+        self.assertEqual(sys.stderr.getvalue(), '')
+
+    @mock.patch.object(environment, 'Environment')
+    @mock.patch.object(sys, 'stdout', six.StringIO())
+    @mock.patch.object(sys, 'stderr', six.StringIO())
+    def test_emit_verbosity_high(self, mock_Environment):
+        obj = context.Context(5, False, 'some/dir/ectory')
+
+        obj.emit('test message', level=3)
+
+        self.assertEqual(sys.stdout.getvalue(), 'test message\n')
+        self.assertEqual(sys.stderr.getvalue(), '')
 
     @mock.patch.object(jinja2, 'Environment', return_value=mock.Mock(**{
         'globals': {},

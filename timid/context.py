@@ -13,6 +13,10 @@
 #    express or implied. See the License for the specific language
 #    governing permissions and limitations under the License.
 
+from __future__ import print_function
+
+import sys
+
 import jinja2
 import six
 
@@ -47,6 +51,40 @@ class Context(object):
         # Set up a Jinja2 environment for substitutions
         self._jinja = jinja2.Environment()
         self._jinja.globals['env'] = self.environment
+
+    def emit(self, msg, level=1, debug=False):
+        """
+        Emit a message to the user.
+
+        :param msg: The message to emit.  If ``debug`` is ``True``,
+                    the message will be emitted to ``stderr`` only if
+                    the ``debug`` attribute is ``True``.  If ``debug``
+                    is ``False``, the message will be emitted to
+                    ``stdout`` under the control of the ``verbose``
+                    attribute.
+        :param level: Ignored if ``debug`` is ``True``.  The message
+                      will only be emitted if the ``verbose``
+                      attribute is greater than or equal to the value
+                      of this parameter.  Defaults to 1.
+        :param debug: If ``True``, marks the message as a debugging
+                      message.  The message will only be emitted if
+                      the ``debug`` attribute is ``True``.
+        """
+
+        # Is it a debug message?
+        if debug:
+            if not self.debug:
+                # Debugging not enabled, don't emit the message
+                return
+            stream = sys.stderr
+        else:
+            # Not a debugging message; is verbose high enough?
+            if self.verbose < level:
+                return
+            stream = sys.stdout
+
+        # Emit the message
+        print(msg, file=stream)
 
     def template(self, string):
         """
