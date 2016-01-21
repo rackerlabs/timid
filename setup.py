@@ -62,7 +62,7 @@ def readreq(filename):
 # Invoke setup
 setuptools.setup(
     name='timid',
-    version='0.1.1',
+    version='0.1.2',
     author='Kevin L. Mitchell',
     author_email='kevin.mitchell@rackspace.com',
     url='https://github.com/rackerlabs/timid',
@@ -75,7 +75,6 @@ setuptools.setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
